@@ -1,0 +1,17 @@
+armorygis_pro/
+├── setup.bat              ← Double-click first
+├── start.bat              ← Double-click to run
+├── start_debug.bat        ← For troubleshooting
+├── main.py
+├── config.py
+├── requirements.txt
+├── pyproject.toml
+├── venv/                  ← Auto-created by setup.bat
+├── database/
+├── models/
+├── views/
+├── controllers/
+├── resources/
+├── utils/
+├── tests/
+└── packaging/

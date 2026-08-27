@@ -1,0 +1,125 @@
+QMainWindow, QWidget {
+    background-color: #eef3fa;
+    color: #1f2d3d;
+    font-family: "Segoe UI", sans-serif;
+    font-size: 10pt;
+    font-weight: 600;
+}
+QLabel {
+    font-weight: 600;
+    color: #1f2937;
+}
+QMenuBar, QToolBar, QStatusBar {
+    background: #ffffff;
+    border-color: #d7e2f1;
+    font-weight: 600;
+}
+QMenuBar::item:selected, QMenu::item:selected {
+    background: #e8f0ff;
+    color: #1d4ed8;
+}
+QTabWidget::pane {
+    background: #ffffff;
+    border: 1px solid #d8e3f3;
+}
+QTabBar::tab {
+    background: #eaf1fb;
+    color: #4b5f77;
+    padding: 8px 12px;
+    font-weight: 600;
+}
+QTabBar::tab:selected {
+    background: #ffffff;
+    color: #1d4ed8;
+    font-weight: 700;
+}
+QLineEdit, QTextEdit, QComboBox, QSpinBox, QDoubleSpinBox {
+    background: #ffffff;
+    border: 1px solid #c8d7ed;
+    color: #1f2937;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-weight: 600;
+    min-height: 20px;
+}
+QLineEdit, QComboBox {
+    qproperty-alignment: AlignCenter;
+}
+QComboBox QAbstractItemView {
+    font-weight: 600;
+    selection-background-color: #dbeafe;
+    selection-color: #1e3a8a;
+}
+QPushButton, QToolButton {
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #2563eb, stop:1 #38bdf8);
+    color: white;
+    border: none;
+    border-radius: 7px;
+    padding: 8px 12px;
+    font-weight: 700;
+}
+QPushButton:hover, QToolButton:hover {
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #1d4ed8, stop:1 #0ea5e9);
+}
+QTableView, QListView {
+    background: #ffffff;
+    alternate-background-color: #f6f9ff;
+    border: 1px solid #d8e3f3;
+    gridline-color: #e4ecf8;
+    font-weight: 600;
+}
+QTableView::item {
+    padding: 6px 8px;
+}
+QHeaderView::section {
+    background: #eef4ff;
+    color: #1e3a5f;
+    border-right: 1px solid #d8e3f3;
+    border-bottom: 1px solid #d8e3f3;
+    padding: 8px 6px;
+    font-weight: 700;
+}
+QGroupBox {
+    background: #ffffff;
+    border: 1px solid #d8e3f3;
+    border-radius: 8px;
+    margin-top: 12px;
+    padding: 12px 10px 10px 10px;
+    font-weight: 700;
+    color: #28405c;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 6px;
+    background: #ffffff;
+}
+QFormLayout QLabel {
+    color: #374151;
+    padding: 4px 6px;
+    font-weight: 600;
+}
+QScrollArea {
+    background: transparent;
+    border: none;
+}
+QScrollBar:vertical {
+    background: #eef3fa;
+    width: 10px;
+    border-radius: 5px;
+}
+QScrollBar::handle:vertical {
+    background: #c8d7ed;
+    border-radius: 5px;
+    min-height: 24px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #94a9c4;
+}
+QCheckBox {
+    font-weight: 600;
+    spacing: 6px;
+}
+QListView::item {
+    padding: 4px;
+}

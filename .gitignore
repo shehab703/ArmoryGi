@@ -1,0 +1,24 @@
+# Python virtual environment (rebuilt per machine via setup.bat / install_offline.bat)
+venv/
+
+# Offline wheel cache (copy manually when deploying)
+offline_packages/
+
+# Runtime / generated data
+app_data/
+__pycache__/
+*.py[cod]
+*.log
+.armorygis/
+sim sess/
+*.armorysim.json
+
+# Duplicate vendored JS (app uses resources/html/Js/three only)
+resources/html/Js/three_vendor/
+
+# User media (weapon images/models) — keep locally, do not commit
+GALLARIES/
+
+# IDE
+.vscode/
+.idea/

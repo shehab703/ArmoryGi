@@ -1,0 +1,79 @@
+armorygis_pro/
+├── main.py                          # Application entry point
+├── config.py                        # Global settings, constants
+├── requirements.txt                 # pip dependencies
+├── pyproject.toml                   # Modern Python packaging
+│
+├── database/
+│   ├── __init__.py
+│   ├── db_manager.py               # SQLAlchemy session manager
+│   ├── schema.sql                  # SQL DDL statements
+│   ├── migrations/                 # Alembic migration scripts
+│   └── seed_data.py                # Initial weapon data loader
+│
+├── models/
+│   ├── __init__.py
+│   ├── weapon_model.py             # QAbstractTableModel for grid
+│   ├── card_model.py               # QAbstractListModel for dashboard
+│   ├── filters.py                  # Filter logic + proxy models
+│   └── orm_models.py               # SQLAlchemy declarative models
+│
+├── views/
+│   ├── __init__.py
+│   ├── main_window.py              # QMainWindow implementation
+│   ├── data_grid_view.py           # QTableView + custom header
+│   ├── dashboard_view.py           # Virtualized QListView
+│   ├── weapon_detail_view.py       # Single-weapon display
+│   ├── map_view.py                 # QWebEngineView wrapper
+│   ├── export_dialog.py            # Export format selector
+│   └── settings_dialog.py          # Preferences UI
+│
+├── controllers/
+│   ├── __init__.py
+│   ├── weapon_controller.py        # CRUD business logic
+│   ├── map_controller.py           # Python↔JavaScript bridge
+│   └── export_controller.py        # Export orchestration
+│
+├── resources/
+│   ├── styles/
+│   │   ├── dark.qss
+│   │   ├── light.qss
+│   │   ├── orange_black.qss
+│   │   └── cyber_neon.qss
+│   ├── translations/
+│   │   ├── armorygis_en.ts         # Qt Linguist source
+│   │   ├── armorygis_ar.ts         # Arabic strings
+│   │   ├── armorygis_en.qm         # Compiled (auto-generated)
+│   │   └── armorygis_ar.qm
+│   ├── icons/
+│   │   ├── svg/                    # Scalable icons
+│   │   └── png/                    # Raster fallbacks
+│   ├── images/                     # Weapon photos, thumbnails
+│   └── html/
+│       ├── map.html                # Leaflet map template
+│       ├── js/
+│       │   ├── leaflet.min.js
+│       │   ├── qwebchannel.js      # Qt WebChannel bridge
+│       │   └── armory_map.js       # Custom map logic
+│       └── css/
+│           └── map.css
+│
+├── utils/
+│   ├── __init__.py
+│   ├── exporters.py                # pandas/openpyxl/docx/reportlab wrappers
+│   ├── theme_manager.py            # QSS loader + live apply
+│   ├── language_manager.py         # QTranslator wrapper + RTL handling
+│   ├── image_utils.py              # Pillow thumbnail generator
+│   └── validators.py               # Input validation helpers
+│
+├── tests/
+│   ├── __init__.py
+│   ├── test_database.py            # SQLAlchemy unit tests
+│   ├── test_models.py              # Qt model tests
+│   ├── test_exporters.py           # Export format validation
+│   └── conftest.py                 # pytest fixtures
+│
+└── packaging/
+    ├── pyinstaller.spec            # --onefile build config
+    ├── entitlements.plist          # macOS code signing
+    └── armorygis.desktop           # Linux .desktop file

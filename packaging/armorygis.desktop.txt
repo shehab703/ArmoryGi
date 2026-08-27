@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=ArmoryGIS Pro
+Comment=Weapons Database & Geospatial Intelligence System
+Exec=/opt/armorygis/armorygis_pro
+Icon=/opt/armorygis/resources/icons/app_icon.png
+Terminal=false
+Type=Application
+Categories=Utility;Science;Geography;
+Keywords=weapons;database;gis;defense;mapping;

@@ -1,0 +1,9 @@
+QMainWindow, QWidget { background-color: #000000; color: #ff6600; font-family: 'Arial', sans-serif; }
+QTableView, QListView, QTreeView { background-color: #1a1a1a; alternate-background-color: #222; gridline-color: #ff660030; }
+QHeaderView::section { background-color: #0a0a0a; color: #ff6600; padding: 5px; border-bottom: 1px solid #ff6600; }
+QTabBar::tab { background: #1a1a1a; color: #888; padding: 6px 10px; }
+QTabBar::tab:selected { background: #ff660020; color: #ff6600; }
+QPushButton { background: #ff6600; border: none; color: #000; font-weight: bold; padding: 5px 10px; border-radius: 3px; }
+QPushButton:hover { background: #ff8833; }
+QComboBox, QSpinBox, QLineEdit { background: #111; border: 1px solid #333; color: #ff6600; padding: 3px; }
+QStatusBar { background: #0a0a0a; color: #ff660080; }

@@ -1,0 +1,1657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ArmoryGIS — Range Simulator</title>
+  <link rel="stylesheet" href="vendor/leaflet.css">
+  <style>
+    :root {
+      --bg: #0a0f18;
+      --panel: #121a28;
+      --border: #2a3f5c;
+      --text: #e6edf5;
+      --muted: #8fa4bf;
+      --accent: #58d8ff;
+      --danger: #ff6b6b;
+      --ok: #3ecf8e;
+      --warn: #ffc857;
+    }
+    body.sim-hc {
+      --bg: #000;
+      --panel: #0a0a0a;
+      --border: #ffcc00;
+      --text: #fff;
+      --muted: #ddd;
+      --accent: #ffcc00;
+      --danger: #ff4444;
+      --ok: #0f0;
+      --warn: #ffcc00;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); }
+    /* Sidebar overlays map; RTL anchors shell to physical right */
+    body.sim-map-fs .sim-sidebar-shell,
+    body.sim-map-fs .sim-sidebar-toggle {
+      display: none !important;
+    }
+    body.sim-map-fs #app {
+      height: 100vh;
+      height: 100dvh;
+      min-height: 100vh;
+      min-height: 100dvh;
+    }
+    body.sim-map-fs #map-wrap { flex: 1; min-height: 0; }
+    #app { display: flex; flex-direction: column; height: 100%; min-height: 480px; position: relative; }
+    .sim-sidebar-shell {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      display: flex;
+      flex-direction: column;
+      width: var(--sim-sidebar-w);
+      max-width: 92vw;
+      overflow: hidden;
+      border-right: 1px solid var(--border);
+      box-sizing: border-box;
+      z-index: 1008;
+      background: var(--panel);
+      box-shadow: 4px 0 24px rgba(0, 0, 0, 0.45);
+      transform: translateX(0);
+      transition: transform 0.34s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+      pointer-events: auto;
+    }
+    body[dir="rtl"] .sim-sidebar-shell {
+      left: auto;
+      right: 0;
+      border-right: none;
+      border-left: 1px solid var(--border);
+      box-shadow: -4px 0 24px rgba(0, 0, 0, 0.45);
+    }
+    body.sim-sidebar-hidden .sim-sidebar-shell {
+      transform: translateX(-100%);
+      pointer-events: none;
+      box-shadow: none;
+    }
+    body[dir="rtl"].sim-sidebar-hidden .sim-sidebar-shell {
+      transform: translateX(100%);
+    }
+    #sidebar {
+      flex: 1 1 auto;
+      width: 100%;
+      min-height: 0;
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      gap: 8px;
+      overflow-y: auto;
+      box-sizing: border-box;
+    }
+    .sim-sidebar-toggle {
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 1012;
+      width: 30px;
+      height: 52px;
+      padding: 0;
+      margin: 0;
+      border-radius: 0 10px 10px 0;
+      border: 1px solid var(--border);
+      border-left: none;
+      background: rgba(18, 26, 40, 0.96);
+      color: var(--accent);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 2px 0 12px rgba(0, 0, 0, 0.35);
+      transition: background 0.15s ease, left 0.34s cubic-bezier(0.4, 0, 0.2, 1), right 0.34s cubic-bezier(0.4, 0, 0.2, 1),
+        transform 0.34s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    /* Menu open (LTR): tab sits on inner edge of drawer */
+    body:not(.sim-sidebar-hidden):not([dir="rtl"]) .sim-sidebar-toggle {
+      left: var(--sim-sidebar-w);
+      transform: translate(-100%, -50%);
+    }
+    .sim-sidebar-toggle:hover {
+      filter: brightness(1.12);
+    }
+    .sim-sidebar-toggle .sim-sidebar-toggle-icon svg {
+      display: block;
+      width: 18px;
+      height: 18px;
+    }
+    body.sim-sidebar-hidden .sim-sidebar-toggle {
+      box-shadow: 3px 2px 14px rgba(0, 0, 0, 0.45);
+    }
+    body[dir="rtl"] .sim-sidebar-toggle {
+      left: auto;
+      right: 0;
+      border-radius: 10px 0 0 10px;
+      border-left: 1px solid var(--border);
+      border-right: none;
+      box-shadow: -2px 0 12px rgba(0, 0, 0, 0.35);
+    }
+    body[dir="rtl"]:not(.sim-sidebar-hidden) .sim-sidebar-toggle {
+      right: var(--sim-sidebar-w);
+      transform: translate(100%, -50%);
+    }
+    body.sim-hc .sim-sidebar-toggle {
+      border-color: var(--border);
+      background: rgba(10, 10, 10, 0.96);
+      color: var(--accent);
+    }
+    h1 { font-size: 15px; margin: 0 0 4px; font-weight: 700; letter-spacing: 0.02em; }
+    .sub { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 4px; }
+    select, button, input[type="search"] {
+      width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border);
+      background: #0d1522; color: var(--text); font-size: 13px;
+    }
+    button.primary { background: linear-gradient(180deg, #1a3a52, #122a3d); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+    button:hover { filter: brightness(1.08); }
+    button.active-toggle { outline: 2px solid var(--accent); }
+    #btnFullscreen {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    #btnFullscreen .sim-fs-icon svg {
+      display: block;
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+    .row { display: flex; gap: 8px; }
+    .row button, .row select { flex: 1; }
+    #map-wrap {
+      --sim-sidebar-w: min(320px, min(92vw, 100%));
+      flex: 1;
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+    }
+    #map { width: 100%; height: 100%; }
+
+    /* Layout editor: draggable/resizable overlay boxes */
+    .layout-edit .layout-box {
+      pointer-events: auto !important;
+      user-select: none;
+      touch-action: none;
+    }
+    /* Allow editing boxes even if normally hidden */
+    .layout-edit .layout-box.hidden {
+      display: block !important;
+      opacity: 0.72;
+    }
+    .layout-box {
+      pointer-events: none; /* enabled in layout-edit */
+      position: relative;
+    }
+    .layout-box .box-grip {
+      display: none;
+    }
+    .layout-edit .layout-box .box-grip {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      height: 8px;
+      min-height: 8px;
+      padding: 0;
+      margin: -4px -6px 6px -6px;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px dashed rgba(0, 255, 255, 0.35);
+      color: transparent;
+      font-size: 0;
+      line-height: 0;
+      letter-spacing: 0;
+      text-transform: none;
+      cursor: move;
+    }
+    body.sim-hc .layout-edit .layout-box .box-grip {
+      border-color: rgba(255, 204, 0, 0.4);
+      color: transparent;
+    }
+    .layout-box .box-resize {
+      display: none;
+    }
+    .layout-edit .layout-box .box-resize {
+      display: block;
+      position: absolute;
+      right: 4px;
+      bottom: 4px;
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      border: 1px solid rgba(0, 255, 255, 0.45);
+      background: rgba(6, 10, 20, 0.55);
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.15);
+      cursor: nwse-resize;
+    }
+    body.sim-hc .layout-edit .layout-box .box-resize {
+      border-color: rgba(255, 204, 0, 0.55);
+      box-shadow: 0 0 10px rgba(255, 204, 0, 0.15);
+    }
+    .layout-edit .layout-outline {
+      outline: 2px solid rgba(0, 255, 255, 0.25);
+      outline-offset: 2px;
+    }
+    /* HUD / AI / status / title — drag & resize grips visible without layout-edit mode */
+    .sim-panel-float .box-grip {
+      display: flex !important;
+      opacity: 0.5;
+      pointer-events: auto;
+      margin: -6px -6px 6px -6px;
+      cursor: move;
+      z-index: 2;
+      position: relative;
+    }
+    .sim-panel-float:hover .box-grip,
+    .sim-panel-float .box-grip:active {
+      opacity: 1;
+    }
+    body.layout-edit .sim-panel-float .box-grip {
+      opacity: 1;
+    }
+    .sim-panel-float .box-resize {
+      display: block !important;
+      opacity: 0.55;
+      pointer-events: auto;
+      z-index: 2;
+    }
+    .sim-panel-float:hover .box-resize {
+      opacity: 1;
+    }
+    .sim-panel-float .layout-box-content {
+      pointer-events: auto;
+      user-select: text;
+    }
+    .sim-panel-float .hud-body,
+    .sim-panel-float .status-strip-body,
+    .sim-panel-float .neon-missile-title-body,
+    #aiSimBox .ai-sim-head {
+      pointer-events: auto;
+      user-select: text;
+    }
+    #simModelBox {
+      width: min(440px, 46vw);
+      height: min(320px, 34vh);
+      max-width: min(540px, 56vw);
+      min-width: 220px;
+      min-height: 160px;
+      overflow: hidden;
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+    }
+    #simModelBox .layout-box-content {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+    }
+    #simModelHead {
+      font-weight: 800;
+      letter-spacing: .6px;
+      color: #aef;
+      margin-bottom: 6px;
+    }
+    #simModelStage {
+      flex: 1;
+      width: 100%;
+      min-height: 120px;
+      height: auto;
+      border-radius: 8px;
+      background: rgba(5, 8, 16, 0.42);
+      border: 1px solid rgba(0,255,255,0.22);
+      overflow: hidden;
+      position: relative;
+    }
+    #simModelStage model-viewer {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      --poster-color: transparent;
+    }
+    #simModelEmpty {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: #9ab;
+      font-size: 12px;
+      padding: 8px;
+    }
+    body.sim-hc .layout-edit .layout-outline {
+      outline-color: rgba(255, 204, 0, 0.3);
+    }
+
+    /* AI analysis panel: width from layout JS; height grows with content up to max (text scales with rem/zoom) */
+    #aiSimBox.map-neon-glass.layout-box {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-sizing: border-box;
+      min-width: 180px;
+      max-width: min(520px, 92vw);
+      height: auto;
+      max-height: min(85vh, 560px);
+    }
+    #aiSimBox .layout-box-content {
+      flex: 0 1 auto;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: visible;
+      box-sizing: border-box;
+    }
+    #aiSimBox .ai-sim-head {
+      font-size: clamp(11px, 0.75rem + 0.35vw, 14px);
+    }
+    #aiSimText {
+      margin-top: 6px;
+      font-size: clamp(11px, 0.82rem + 0.35vw, 16px);
+      line-height: 1.45;
+      white-space: pre-wrap;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      max-height: min(calc(85vh - 52px), 508px);
+      -webkit-overflow-scrolling: touch;
+    }
+    #aiSimBox .box-resize {
+      display: none !important;
+    }
+
+    /* Map play control (same action as sidebar Play) */
+    .sim-map-play-fab {
+      position: absolute;
+      left: var(--mapPad);
+      bottom: calc(var(--bottomPad) + 52px);
+      z-index: 1006;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: auto !important;
+      min-height: 42px;
+      padding: 8px 14px !important;
+      margin: 0;
+      border-radius: 10px;
+      cursor: pointer;
+      pointer-events: auto;
+      background: linear-gradient(165deg, rgba(0, 45, 32, 0.92), rgba(0, 18, 14, 0.96)) !important;
+      border: 2px solid #39ff9c !important;
+      color: #c8ffe8 !important;
+      font-weight: 700 !important;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-size: 11px !important;
+      text-shadow:
+        0 0 10px rgba(57, 255, 156, 0.85),
+        0 0 22px rgba(0, 255, 140, 0.35);
+      box-shadow:
+        0 0 18px rgba(57, 255, 156, 0.4),
+        inset 0 0 22px rgba(57, 255, 156, 0.09);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      animation: btnPlayArmyGlow 2.5s ease-in-out infinite;
+    }
+    .sim-map-play-fab:hover {
+      filter: brightness(1.14);
+      border-color: #7dffb3 !important;
+    }
+    .sim-map-play-fab:active {
+      transform: scale(0.98);
+    }
+    .sim-map-play-fab .layout-box-content {
+      display: inline-flex !important;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+    }
+    .sim-map-play-fab .btn-play-army-icon svg {
+      width: 22px;
+      height: 22px;
+      display: block;
+    }
+    body[dir="rtl"] .sim-map-play-fab {
+      left: auto;
+      right: var(--mapPad);
+    }
+    body.sim-hc .sim-map-transfer-fab {
+      border-color: rgba(255, 204, 0, 0.65) !important;
+      color: #fff8c8 !important;
+      background: rgba(24, 18, 0, 0.82) !important;
+      box-shadow: 0 0 16px rgba(255, 200, 0, 0.22), inset 0 0 14px rgba(255, 200, 0, 0.08);
+    }
+    body.sim-hc .sim-map-play-fab {
+      background: linear-gradient(165deg, rgba(40, 32, 0, 0.94), rgba(18, 14, 0, 0.97)) !important;
+      border-color: #ffcc00 !important;
+      color: #fff8c8 !important;
+      text-shadow: 0 0 12px rgba(255, 204, 0, 0.85), 0 0 24px rgba(255, 170, 0, 0.35);
+      box-shadow: 0 0 20px rgba(255, 204, 0, 0.4), inset 0 0 22px rgba(255, 200, 0, 0.1);
+    }
+    /* Transfer full simulator scene to main app map */
+    .sim-map-transfer-fab {
+      position: absolute;
+      right: var(--mapPad);
+      top: calc(var(--topPad) + 58px);
+      z-index: 1005;
+      width: 46px !important;
+      height: 46px !important;
+      min-width: 46px !important;
+      padding: 0 !important;
+      margin: 0;
+      border-radius: 12px;
+      cursor: pointer;
+      pointer-events: auto;
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid rgba(0, 255, 255, 0.55) !important;
+      background: rgba(6, 14, 22, 0.88) !important;
+      color: #9ef !important;
+      box-shadow: 0 0 16px rgba(0, 255, 255, 0.22), inset 0 0 14px rgba(0, 200, 255, 0.08);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+    }
+    .sim-map-transfer-fab:hover {
+      filter: brightness(1.12);
+      border-color: rgba(0, 255, 255, 0.85) !important;
+    }
+    .sim-map-transfer-fab:active {
+      transform: scale(0.97);
+    }
+    .sim-map-transfer-fab .layout-box-content {
+      display: flex !important;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+    .sim-map-transfer-fab svg {
+      width: 24px;
+      height: 24px;
+      display: block;
+    }
+    body[dir="rtl"] .sim-map-transfer-fab {
+      right: auto;
+      left: var(--mapPad);
+    }
+    /* Map overlays — transparent neon glass (legend, distance strip, HUD, controls) */
+    .map-neon-glass {
+      background: rgba(6, 10, 20, var(--sim-layout-glass-a));
+      border: 1px solid rgba(0, 255, 255, 0.38);
+      border-radius: 10px;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      box-shadow:
+        0 0 18px rgba(0, 255, 255, 0.14),
+        inset 0 0 28px rgba(0, 200, 255, 0.07);
+    }
+    body.sim-hc .map-neon-glass {
+      border-color: rgba(255, 204, 0, 0.5);
+      box-shadow:
+        0 0 18px rgba(255, 204, 0, 0.18),
+        inset 0 0 24px rgba(255, 200, 0, 0.08);
+    }
+    :root {
+      --mapPad: 12px;
+      --leftColW: min(340px, 40vw);
+      --rightColW: min(340px, 40vw);
+      --topPad: 12px;
+      --bottomPad: 14px;
+      /* Map layout panels (.map-neon-glass, telemetry, missile title): alpha 0.08–0.55 via sidebar slider */
+      --sim-layout-glass-a: 0.38;
+    }
+
+    .hud {
+      position: absolute; left: var(--mapPad); bottom: var(--bottomPad); z-index: 1000;
+      padding: 10px 14px; font-size: 12px; max-width: var(--leftColW); pointer-events: none;
+      line-height: 1.5;
+      color: #a8f8ff;
+      text-shadow:
+        0 0 8px rgba(0, 255, 255, 0.55),
+        0 0 18px rgba(0, 220, 255, 0.28);
+    }
+    body[dir="rtl"] .hud { left: auto; right: var(--mapPad); }
+    body.sim-hc .hud {
+      color: #fff8c8;
+      text-shadow: 0 0 8px rgba(255, 204, 0, 0.55), 0 0 16px rgba(255, 180, 0, 0.3);
+    }
+    .status-strip {
+      position: absolute;
+      right: var(--mapPad);
+      bottom: var(--bottomPad);
+      left: auto;
+      z-index: 999;
+      padding: 10px 14px;
+      font-size: 11px;
+      pointer-events: none;
+      width: fit-content;
+      max-width: min(720px, 62vw);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #7dfff8;
+      font-family: "Consolas", "Cascadia Mono", ui-monospace, monospace;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-shadow:
+        0 0 10px rgba(0, 255, 255, 0.65),
+        0 0 22px rgba(88, 216, 255, 0.35);
+    }
+    body[dir="rtl"] .status-strip { direction: rtl; right: auto; left: var(--mapPad); }
+    body.sim-hc .status-strip {
+      color: #ffee88;
+      text-shadow: 0 0 10px rgba(255, 204, 0, 0.6), 0 0 20px rgba(255, 170, 0, 0.3);
+    }
+    .legend {
+      position: absolute;
+      right: var(--mapPad);
+      top: calc(var(--topPad) + 76px);
+      z-index: 1000;
+      padding: 12px 14px;
+      font-size: 11px;
+      max-width: var(--rightColW);
+    }
+    body[dir="rtl"] .legend { right: auto; left: var(--mapPad); }
+    .legend h3 {
+      margin: 0 0 10px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #6dffff;
+      text-shadow:
+        0 0 10px rgba(0, 255, 255, 0.85),
+        0 0 24px rgba(0, 200, 255, 0.45);
+    }
+    body.sim-hc .legend h3 {
+      color: #ffe566;
+      text-shadow: 0 0 10px rgba(255, 204, 0, 0.85), 0 0 22px rgba(255, 160, 0, 0.4);
+    }
+    .legend ul {
+      color: rgba(185, 245, 255, 0.92);
+      text-shadow: 0 0 8px rgba(0, 240, 255, 0.35);
+    }
+    body.sim-hc .legend ul {
+      color: rgba(255, 248, 200, 0.95);
+      text-shadow: 0 0 8px rgba(255, 204, 0, 0.35);
+    }
+    .legend li span {
+      filter: drop-shadow(0 0 4px currentColor);
+    }
+    .leaflet-marker-icon.armory-azimuth-label {
+      border: none !important;
+      background: transparent !important;
+    }
+    .armory-azimuth-label span {
+      display: inline-block;
+      font-size: clamp(9px, 0.68rem + 0.25vw, 12px);
+      font-weight: 700;
+      color: rgba(230, 255, 255, 0.95);
+      text-shadow:
+        0 0 6px rgba(0, 0, 0, 0.95),
+        0 0 10px rgba(0, 40, 60, 0.9);
+      letter-spacing: 0.02em;
+      pointer-events: none;
+    }
+    #simMapCtxMenu {
+      display: none;
+      position: fixed;
+      z-index: 12050;
+      min-width: 200px;
+      max-width: min(92vw, 320px);
+      padding: 6px 0;
+      background: rgba(10, 16, 28, 0.96);
+      border: 1px solid rgba(0, 220, 255, 0.45);
+      border-radius: 10px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+      font: 13px system-ui, "Segoe UI", sans-serif;
+      color: #e5fbff;
+    }
+    #simMapCtxMenu .map-ctx-btn {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 10px 16px;
+      border: none;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+    }
+    #simMapCtxMenu .map-ctx-btn:hover,
+    #simMapCtxMenu .map-ctx-btn:focus {
+      background: rgba(0, 220, 255, 0.15);
+      outline: none;
+    }
+    #simMapCtxMenu .map-ctx-preview {
+      padding: 0 16px 10px;
+      font-size: 11px;
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      opacity: 0.82;
+      word-break: break-all;
+      line-height: 1.35;
+    }
+    .zoom-bar {
+      position: absolute; left: var(--mapPad); top: var(--topPad); z-index: 1000; display: flex; flex-direction: column; gap: 6px;
+    }
+    body[dir="rtl"] .zoom-bar { left: auto; right: var(--mapPad); }
+    .zoom-bar button {
+      width: 38px; height: 38px; padding: 0; font-size: 18px; line-height: 1;
+      border-radius: 8px;
+      cursor: pointer;
+      background: rgba(6, 12, 22, 0.45);
+      border: 1px solid rgba(0, 255, 255, 0.42);
+      color: #7dfff8;
+      text-shadow: 0 0 10px rgba(0, 255, 255, 0.75);
+      box-shadow: 0 0 14px rgba(0, 255, 255, 0.12), inset 0 0 16px rgba(0, 200, 255, 0.06);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+    }
+    .zoom-bar button:hover {
+      filter: brightness(1.15);
+      border-color: rgba(0, 255, 255, 0.65);
+    }
+    #btnFsDefault {
+      position: absolute;
+      right: var(--mapPad);
+      top: calc(var(--topPad) + 46px);
+      z-index: 1004;
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      border: 1px solid rgba(0, 255, 255, 0.45);
+      background: rgba(6, 12, 22, 0.58);
+      color: #7dfff8;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 12px rgba(0, 255, 255, 0.14), inset 0 0 10px rgba(0, 200, 255, 0.08);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+    #btnFsDefault svg {
+      width: 16px;
+      height: 16px;
+      display: block;
+    }
+    body[dir="rtl"] #btnFsDefault {
+      right: auto;
+      left: var(--mapPad);
+    }
+    body.sim-hc #btnFsDefault {
+      border-color: rgba(255, 204, 0, 0.6);
+      color: #ffee88;
+      box-shadow: 0 0 12px rgba(255, 200, 0, 0.18), inset 0 0 10px rgba(255, 200, 0, 0.1);
+    }
+    #btnFsDefault.hidden {
+      display: none !important;
+    }
+    body.sim-hc .zoom-bar button {
+      border-color: rgba(255, 204, 0, 0.55);
+      color: #ffee88;
+      text-shadow: 0 0 10px rgba(255, 204, 0, 0.75);
+      box-shadow: 0 0 14px rgba(255, 200, 0, 0.15), inset 0 0 16px rgba(255, 200, 0, 0.06);
+    }
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 2000;
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 24px; max-width: 440px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+    }
+    .modal h2 { margin: 0 0 12px; font-size: 18px; }
+    .modal p { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 0 0 16px; }
+    .modal-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .modal-actions button { flex: 1; min-width: 100px; }
+    .hidden { display: none !important; }
+    .stat { color: var(--muted); font-size: 11px; margin-top: 4px; }
+    .chk-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+    .chk-row input { width: auto; }
+    .sim-title-header { margin-bottom: 6px; }
+    .sim-layer-style-details {
+      margin: 0 0 10px;
+      border: 1px solid rgba(0, 255, 255, 0.22);
+      border-radius: 8px;
+      background: rgba(8, 14, 24, 0.45);
+      overflow: hidden;
+    }
+    .sim-layer-style-details summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 8px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #7dfff8;
+      text-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
+      user-select: none;
+    }
+    .sim-layer-style-details summary::-webkit-details-marker { display: none; }
+    .sim-layer-style-details summary::after {
+      content: " ▸";
+      opacity: 0.75;
+      font-size: 10px;
+    }
+    .sim-layer-style-details[open] summary::after { content: " ▾"; }
+    .sim-layer-style-body {
+      padding: 8px 10px 10px;
+      border-top: 1px solid rgba(0, 255, 255, 0.15);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .style-control-group {
+      padding: 8px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(42, 63, 92, 0.5);
+    }
+    .style-group-title {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .style-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 4px 8px;
+      align-items: center;
+      margin-top: 6px;
+      font-size: 11px;
+    }
+    .style-row:first-of-type { margin-top: 0; }
+    .style-row label { margin: 0; color: var(--muted); }
+    .style-row input[type="range"] {
+      grid-column: 1 / -1;
+      width: 100%;
+      accent-color: var(--accent);
+    }
+    .style-op-val {
+      font-family: ui-monospace, monospace;
+      font-size: 10px;
+      color: var(--accent);
+      text-align: right;
+    }
+    .style-row-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .style-row-stack label { font-size: 11px; color: var(--muted); }
+    .style-row-stack input[type="color"] {
+      width: 100%;
+      height: 28px;
+      padding: 2px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      background: #0d1522;
+    }
+    .style-row-stack select {
+      width: 100%;
+      padding: 7px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #0d1522;
+      color: var(--text);
+      font-size: 12px;
+    }
+    .btn-style-reset {
+      width: 100%;
+      margin-top: 4px;
+      padding: 7px;
+      font-size: 11px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 200, 100, 0.35);
+      background: rgba(40, 30, 0, 0.35);
+      color: #ffe0a3;
+      cursor: pointer;
+    }
+    .btn-style-reset:hover { filter: brightness(1.1); }
+    body.sim-hc .sim-layer-style-details {
+      border-color: rgba(255, 204, 0, 0.35);
+    }
+    body.sim-hc .sim-layer-style-details summary {
+      color: #ffee88;
+      text-shadow: 0 0 8px rgba(255, 204, 0, 0.35);
+    }
+
+    .sim-tools-details { margin: 0 0 10px; }
+    .tool-grid { display: flex; flex-direction: column; gap: 10px; }
+    .tool-row { display: flex; gap: 8px; }
+    .tool-row button, .tool-row select { flex: 1; }
+    .tool-mini {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(0, 255, 255, 0.25);
+      background: rgba(6, 10, 20, 0.35);
+      color: rgba(185, 245, 255, 0.95);
+      cursor: pointer;
+    }
+    .tool-mini:hover { filter: brightness(1.1); }
+    .tool-mini svg { width: 18px; height: 18px; display: block; }
+    body.sim-hc .tool-mini { border-color: rgba(255, 204, 0, 0.35); color: rgba(255, 248, 200, 0.95); }
+
+    .vis-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+    .vis-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(42, 63, 92, 0.45);
+      background: rgba(0,0,0,0.18);
+    }
+    .vis-item input { width: auto; }
+    .sim-swot-panel-opacity {
+      grid-column: 1 / -1;
+      margin: 2px 0 4px;
+      padding: 10px 10px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(0, 255, 255, 0.18);
+      background: rgba(0, 18, 28, 0.35);
+    }
+    .sim-swot-panel-opacity-title {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    body.sim-hc .sim-swot-panel-opacity {
+      border-color: rgba(255, 204, 0, 0.28);
+      background: rgba(28, 22, 0, 0.25);
+    }
+    body.sim-hc .sim-swot-panel-opacity-title {
+      color: rgba(255, 238, 180, 0.85);
+    }
+
+    /* SWOT overlay on map */
+    .swot-overlay {
+      position: absolute;
+      left: var(--mapPad);
+      top: calc(var(--topPad) + 76px + 300px);
+      z-index: 1001;
+      max-width: var(--leftColW);
+      padding: 12px 14px;
+      font-size: 11px;
+      pointer-events: none;
+      color: rgba(185, 245, 255, 0.95);
+      text-shadow: 0 0 10px rgba(0, 255, 255, 0.35);
+    }
+    .swot-overlay .swot-overlay-header,
+    .swot-overlay .swot-kv,
+    .swot-overlay #swotTextBoxes {
+      pointer-events: auto;
+    }
+    body[dir="rtl"] .swot-overlay { left: auto; right: var(--mapPad); }
+    .swot-overlay h4 {
+      margin: 0 0 10px;
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #6dffff;
+      text-shadow: 0 0 10px rgba(0,255,255,0.75), 0 0 22px rgba(0,200,255,0.4);
+    }
+    .swot-kv { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; }
+    .swot-kv .k { color: rgba(160, 230, 255, 0.75); letter-spacing: 0.08em; text-transform: uppercase; font-size: 10px; }
+    .swot-kv .v { font-family: ui-monospace, monospace; color: #7dfff8; text-shadow: 0 0 10px rgba(0,255,255,0.55); }
+    body.sim-hc .swot-overlay h4 { color: #ffe566; text-shadow: 0 0 10px rgba(255,204,0,0.7); }
+    body.sim-hc .swot-kv .v { color: #ffee88; text-shadow: 0 0 10px rgba(255,204,0,0.55); }
+    .swot-overlay-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+      pointer-events: auto;
+    }
+    .swot-overlay-header h4 {
+      margin: 0;
+      flex: 1;
+    }
+    .sim-swot-transfer-icon {
+      flex-shrink: 0;
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      border-radius: 8px;
+      border: 1px solid rgba(0, 255, 255, 0.45);
+      background: rgba(6, 12, 22, 0.75);
+      color: #aef;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.15);
+    }
+    .sim-swot-transfer-icon:hover {
+      filter: brightness(1.1);
+      border-color: rgba(0, 255, 255, 0.75);
+    }
+    .sim-swot-transfer-icon svg {
+      width: 20px;
+      height: 20px;
+      display: block;
+    }
+    body.sim-hc .sim-swot-transfer-icon {
+      border-color: rgba(255, 204, 0, 0.5);
+      background: rgba(28, 22, 0, 0.75);
+      color: #ffe566;
+    }
+    .help-fab {
+      position: absolute; right: var(--mapPad); bottom: calc(var(--bottomPad) + 64px); z-index: 1001;
+      width: 38px; height: 38px; border-radius: 50%;
+      border: 1px solid rgba(180, 100, 255, 0.55);
+      background: rgba(12, 6, 24, 0.45);
+      color: #e8a6ff;
+      font-weight: 700; cursor: pointer;
+      text-shadow: 0 0 12px rgba(224, 120, 255, 0.85);
+      box-shadow:
+        0 0 16px rgba(200, 100, 255, 0.2),
+        inset 0 0 18px rgba(180, 80, 255, 0.08);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+    }
+    .help-fab:hover { filter: brightness(1.12); }
+    body[dir="rtl"] .help-fab { right: auto; left: var(--mapPad); }
+    body.sim-hc .help-fab {
+      border-color: rgba(255, 204, 0, 0.65);
+      color: #fff8a8;
+      text-shadow: 0 0 12px rgba(255, 204, 0, 0.85);
+      box-shadow: 0 0 16px rgba(255, 200, 0, 0.22), inset 0 0 18px rgba(255, 200, 0, 0.1);
+    }
+
+    /* Leaflet vector layers — neon glow (className set in JS) */
+    #map .leaflet-overlay-pane svg path.armory-range-ring {
+      filter: drop-shadow(0 0 3px rgba(255, 77, 140, 0.95)) drop-shadow(0 0 10px rgba(255, 40, 120, 0.55));
+    }
+    #map .leaflet-overlay-pane svg path.armory-route {
+      filter: drop-shadow(0 0 2px rgba(0, 255, 250, 0.95)) drop-shadow(0 0 8px rgba(0, 230, 255, 0.65));
+    }
+    #map .leaflet-overlay-pane svg path.armory-defense {
+      filter: drop-shadow(0 0 3px rgba(62, 255, 160, 0.85)) drop-shadow(0 0 9px rgba(50, 220, 140, 0.45));
+    }
+    #map .leaflet-overlay-pane svg path.armory-measure {
+      filter: drop-shadow(0 0 2px rgba(255, 220, 100, 0.95)) drop-shadow(0 0 7px rgba(255, 200, 80, 0.5));
+    }
+    #map .leaflet-marker-pane img.leaflet-marker-icon {
+      filter: drop-shadow(0 0 5px rgba(0, 255, 255, 0.75)) drop-shadow(0 0 10px rgba(255, 200, 100, 0.35));
+    }
+    #map .leaflet-marker-shadow {
+      opacity: 0.35;
+    }
+    #map .leaflet-control-attribution {
+      background: rgba(6, 12, 22, 0.42) !important;
+      color: rgba(160, 235, 255, 0.88) !important;
+      text-shadow: 0 0 8px rgba(0, 255, 255, 0.35);
+      border: 1px solid rgba(0, 255, 255, 0.28) !important;
+      border-radius: 8px;
+      padding: 4px 8px !important;
+      margin: 8px !important;
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      box-shadow: 0 0 12px rgba(0, 255, 255, 0.1);
+      font-size: 10px;
+    }
+    body.sim-hc #map .leaflet-control-attribution {
+      color: rgba(255, 240, 180, 0.9) !important;
+      border-color: rgba(255, 204, 0, 0.35) !important;
+      text-shadow: 0 0 8px rgba(255, 204, 0, 0.35);
+    }
+
+    /* Neon flight telemetry (transparent HUD on map) */
+    .neon-telemetry {
+      position: absolute;
+      left: var(--mapPad);
+      top: calc(var(--topPad) + 88px);
+      z-index: 1002;
+      min-width: 220px;
+      max-width: var(--leftColW);
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: rgba(6, 10, 20, var(--sim-layout-glass-a));
+      border: 1px solid rgba(0, 255, 255, 0.35);
+      box-shadow:
+        0 0 12px rgba(0, 255, 255, 0.15),
+        inset 0 0 24px rgba(0, 200, 255, 0.06);
+      font-family: "Consolas", "Cascadia Mono", "Segoe UI Mono", ui-monospace, monospace;
+      font-size: 11px;
+      line-height: 1.55;
+      pointer-events: none;
+      backdrop-filter: blur(4px);
+    }
+    body[dir="rtl"] .neon-telemetry {
+      left: auto;
+      right: var(--mapPad);
+    }
+    body.sim-hc .neon-telemetry {
+      border-color: rgba(255, 204, 0, 0.55);
+      box-shadow: 0 0 14px rgba(255, 204, 0, 0.2), inset 0 0 20px rgba(255, 200, 0, 0.08);
+    }
+    .neon-telemetry .neon-label {
+      color: rgba(160, 230, 255, 0.75);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-shadow: 0 0 6px rgba(0, 255, 255, 0.4);
+    }
+    body.sim-hc .neon-telemetry .neon-label {
+      color: rgba(255, 240, 180, 0.85);
+      text-shadow: 0 0 6px rgba(255, 204, 0, 0.45);
+    }
+    .neon-telemetry .neon-val {
+      color: #7dfff8;
+      font-weight: 600;
+      font-size: 12px;
+      text-shadow:
+        0 0 6px rgba(0, 255, 255, 0.9),
+        0 0 14px rgba(0, 220, 255, 0.55);
+    }
+    body.sim-hc .neon-telemetry .neon-val {
+      color: #ffee88;
+      text-shadow:
+        0 0 6px rgba(255, 220, 0, 0.95),
+        0 0 16px rgba(255, 180, 0, 0.5);
+    }
+    .neon-telemetry .neon-row { margin-top: 6px; }
+    .neon-telemetry .neon-row:first-child { margin-top: 0; }
+
+    /* Missile designation — opposite corner, dual-phase neon flash */
+    .neon-missile-title {
+      position: absolute;
+      right: var(--mapPad);
+      top: var(--topPad);
+      z-index: 1003;
+      max-width: min(340px, 42vw);
+      padding: 10px 16px;
+      border-radius: 10px;
+      background: rgba(8, 4, 18, var(--sim-layout-glass-a));
+      border: 1px solid rgba(255, 0, 255, 0.35);
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      line-height: 1.25;
+      text-align: right;
+      pointer-events: none;
+      backdrop-filter: blur(5px);
+      animation: neonTitleFlash 1.15s ease-in-out infinite alternate;
+    }
+    body[dir="rtl"] .neon-missile-title {
+      right: auto;
+      left: var(--mapPad);
+      text-align: left;
+    }
+    body.sim-hc .neon-missile-title {
+      border-color: rgba(255, 204, 0, 0.6);
+      animation: neonTitleFlashHC 1.15s ease-in-out infinite alternate;
+    }
+    @keyframes neonTitleFlash {
+      0% {
+        color: #6dffff;
+        text-shadow:
+          0 0 8px #0ff,
+          0 0 20px #0af,
+          0 0 36px rgba(0, 255, 255, 0.45);
+        border-color: rgba(0, 255, 255, 0.45);
+        box-shadow: 0 0 18px rgba(0, 255, 255, 0.12);
+      }
+      100% {
+        color: #ffa6ff;
+        text-shadow:
+          0 0 10px #f0f,
+          0 0 26px #c0f,
+          0 0 42px rgba(255, 100, 255, 0.4);
+        border-color: rgba(255, 0, 255, 0.55);
+        box-shadow: 0 0 22px rgba(255, 0, 255, 0.18);
+      }
+    }
+    @keyframes neonTitleFlashHC {
+      0% {
+        color: #fff8a8;
+        text-shadow: 0 0 10px #ffcc00, 0 0 28px #ff9900;
+        border-color: rgba(255, 204, 0, 0.7);
+      }
+      100% {
+        color: #ffffff;
+        text-shadow: 0 0 12px #ffff00, 0 0 32px #ffcc00;
+        border-color: rgba(255, 255, 100, 0.85);
+      }
+    }
+
+    /* Army neon — Play control */
+    .btn-play-army {
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 14px !important;
+      background: linear-gradient(165deg, rgba(0, 45, 32, 0.92), rgba(0, 18, 14, 0.96)) !important;
+      border: 2px solid #39ff9c !important;
+      color: #c8ffe8 !important;
+      font-weight: 700 !important;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-size: 12px !important;
+      text-shadow:
+        0 0 10px rgba(57, 255, 156, 0.85),
+        0 0 22px rgba(0, 255, 140, 0.35);
+      box-shadow:
+        0 0 18px rgba(57, 255, 156, 0.4),
+        inset 0 0 22px rgba(57, 255, 156, 0.09);
+      animation: btnPlayArmyGlow 2.5s ease-in-out infinite;
+    }
+    .btn-play-army:hover {
+      filter: brightness(1.14);
+      border-color: #7dffb3 !important;
+    }
+    .btn-play-army:active {
+      transform: scale(0.98);
+    }
+    .btn-play-army .btn-play-army-icon {
+      display: flex;
+      flex-shrink: 0;
+      filter: drop-shadow(0 0 5px #39ff9c) drop-shadow(0 0 10px rgba(57, 255, 156, 0.6));
+    }
+    .btn-play-army .btn-play-army-icon svg {
+      width: 26px;
+      height: 26px;
+      display: block;
+    }
+    @keyframes btnPlayArmyGlow {
+      0%, 100% {
+        border-color: #39ff9c;
+        box-shadow: 0 0 18px rgba(57, 255, 156, 0.38), inset 0 0 22px rgba(57, 255, 156, 0.09);
+      }
+      50% {
+        border-color: #7dffb3;
+        box-shadow: 0 0 28px rgba(120, 255, 180, 0.55), inset 0 0 26px rgba(57, 255, 156, 0.14);
+      }
+    }
+    body.sim-hc .btn-play-army {
+      background: linear-gradient(165deg, rgba(40, 32, 0, 0.94), rgba(18, 14, 0, 0.97)) !important;
+      border-color: #ffcc00 !important;
+      color: #fff8c8 !important;
+      text-shadow: 0 0 12px rgba(255, 204, 0, 0.85), 0 0 24px rgba(255, 170, 0, 0.35);
+      box-shadow: 0 0 20px rgba(255, 204, 0, 0.4), inset 0 0 22px rgba(255, 200, 0, 0.1);
+    }
+    body.sim-hc .btn-play-army .btn-play-army-icon {
+      filter: drop-shadow(0 0 5px #ffcc00) drop-shadow(0 0 10px rgba(255, 200, 0, 0.55));
+    }
+    body.sim-hc .btn-play-army:hover {
+      border-color: #fff066 !important;
+    }
+    body.sim-hc .btn-play-army-icon svg path:first-of-type {
+      stroke: #ffcc00 !important;
+      fill: rgba(50, 42, 0, 0.82) !important;
+    }
+    body.sim-hc .btn-play-army-icon svg path:last-of-type {
+      fill: #ffee66 !important;
+    }
+
+    /* Leaflet army neon markers (launch / target) */
+    .leaflet-div-icon.armory-div-icon {
+      background: transparent !important;
+      border: none !important;
+    }
+    .armory-marker-svg {
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .armory-marker-svg svg {
+      width: 46px;
+      height: 46px;
+      display: block;
+    }
+    .armory-marker-launch .armory-marker-svg {
+      filter: drop-shadow(0 0 5px #39ff9c) drop-shadow(0 0 12px rgba(57, 255, 156, 0.75));
+      animation: armoryLaunchPulse 2.2s ease-in-out infinite;
+    }
+    .armory-marker-target .armory-marker-svg {
+      filter: drop-shadow(0 0 6px #ff9500) drop-shadow(0 0 14px rgba(255, 140, 0, 0.85));
+      animation: armoryTargetReticle 1.35s ease-in-out infinite alternate;
+    }
+    @keyframes armoryLaunchPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.08); opacity: 0.94; }
+    }
+    @keyframes armoryTargetReticle {
+      0% { transform: scale(1) rotate(0deg); opacity: 1; }
+      100% { transform: scale(1.06) rotate(1.5deg); opacity: 0.9; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="map-wrap">
+    <div id="sidebarShell" class="sim-sidebar-shell">
+    <aside id="sidebar">
+      <div class="sim-title-header">
+        <h1 id="i18n_title">🎯 Tactical simulator</h1>
+        <p class="sub" id="i18n_subtitle">Select a weapon, set target on map, run trajectory preview.</p>
+        <details class="sim-layer-style-details" id="simLayerStyleDetails">
+          <summary id="simStyleSummary">Map layers & colors</summary>
+          <div class="sim-layer-style-body">
+            <div class="style-control-group">
+              <span class="style-group-title" id="lbl_style_range_ring">Range ring (engagement disk)</span>
+              <div class="style-row">
+                <label for="styleRangeFillOp" id="lbl_style_fill_op">Fill opacity</label>
+                <span class="style-op-val" id="styleRangeFillOpVal">10%</span>
+                <input type="range" id="styleRangeFillOp" min="0" max="100" value="10" title="Fill opacity">
+              </div>
+              <div class="style-row-stack">
+                <label for="styleRangeFill" id="lbl_style_fill_color">Fill color</label>
+                <input type="color" id="styleRangeFill" value="#ff3d7a" title="Fill color">
+              </div>
+              <div class="style-row">
+                <label for="styleRangeOutlineOp" id="lbl_style_outline_op">Outline opacity</label>
+                <span class="style-op-val" id="styleRangeOutlineOpVal">95%</span>
+                <input type="range" id="styleRangeOutlineOp" min="0" max="100" value="95" title="Outline opacity">
+              </div>
+              <div class="style-row-stack">
+                <label for="styleRangeOutline" id="lbl_style_outline_color">Outline color</label>
+                <input type="color" id="styleRangeOutline" value="#ff5e9a" title="Outline color">
+              </div>
+            </div>
+            <div class="style-control-group">
+              <span class="style-group-title" id="lbl_style_path_group">Flight path line</span>
+              <div class="style-row">
+                <label for="stylePathOp" id="lbl_style_path_op">Line opacity</label>
+                <span class="style-op-val" id="stylePathOpVal">98%</span>
+                <input type="range" id="stylePathOp" min="0" max="100" value="98" title="Path opacity">
+              </div>
+              <div class="style-row-stack">
+                <label for="stylePathColor" id="lbl_style_path_color">Line color</label>
+                <input type="color" id="stylePathColor" value="#00fff2" title="Path color">
+              </div>
+              <div class="style-row-stack">
+                <label for="stylePathWeight" id="lbl_style_path_weight">Line thickness</label>
+                <select id="stylePathWeight" title="Path stroke width">
+                  <option value="2">2 px</option>
+                  <option value="3">3 px</option>
+                  <option value="4" selected>4 px</option>
+                  <option value="5">5 px</option>
+                  <option value="6">6 px</option>
+                  <option value="8">8 px</option>
+                  <option value="10">10 px</option>
+                </select>
+              </div>
+              <div class="style-row-stack">
+                <label for="stylePathDash" id="lbl_style_path_dash">Line pattern</label>
+                <select id="stylePathDash" title="Solid, dashed, or dotted path">
+                  <option value="solid">Solid</option>
+                  <option value="dash">Dash</option>
+                  <option value="longdash">Long dash</option>
+                  <option value="dots">Round dots</option>
+                </select>
+              </div>
+            </div>
+            <button type="button" class="btn-style-reset" id="btnStyleReset">Reset to defaults</button>
+          </div>
+        </details>
+        <details class="sim-layer-style-details sim-tools-details" id="simToolsDetails">
+          <summary id="simToolsSummary">Simulator tools</summary>
+          <div class="sim-layer-style-body">
+            <div class="tool-grid">
+              <div class="tool-row">
+                <button type="button" id="btnLayoutEdit" class="tool-mini" title="Move/resize map boxes">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+                    <path d="M7 3h10v4H7V3Z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M7 17h10v4H7v-4Z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M3 7h4v10H3V7Z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M17 7h4v10h-4V7Z" stroke="currentColor" stroke-width="2"/>
+                  </svg>
+                  <span id="lbl_layout_edit">Edit layout</span>
+                </button>
+              </div>
+              <div class="tool-row">
+                <button type="button" id="btnToggleSwot" class="tool-mini" title="Toggle SWOT overlay">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+                    <path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M16 16l2 2 4-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <span id="lbl_swot_toggle">SWOT</span>
+                </button>
+                <button type="button" id="btnAiSim" class="tool-mini" title="AI simulator assessment">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 3v3M12 18v3M3 12h3M18 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M8 8l-2-2M18 6l-2 2M6 18l2-2M16 16l2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M12 7a5 5 0 1 1 0 10a5 5 0 0 1 0-10Z" stroke="currentColor" stroke-width="2"/>
+                  </svg>
+                  <span id="lbl_sim_ai">AI</span>
+                </button>
+                <button type="button" id="btnSaveSim" class="tool-mini" title="Save simulator session file">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+                    <path d="M7 3h10l4 4v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M8 3v6h8V3" stroke="currentColor" stroke-width="2"/>
+                  </svg>
+                  <span id="lbl_sim_save">Save</span>
+                </button>
+                <button type="button" id="btnLoadSim" class="tool-mini" title="Load simulator session file">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+                    <path d="M4 19V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M12 11v6M9 14h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                  <span id="lbl_sim_load">Load</span>
+                </button>
+              </div>
+              <div class="tool-row">
+                <select id="exportFormat" title="Export format">
+                  <option value="png">PNG</option>
+                  <option value="jpg">JPG</option>
+                  <option value="svg">SVG</option>
+                  <option value="pdf">PDF</option>
+                  <option value="docx">DOCX</option>
+                </select>
+                <button type="button" id="btnExportSystem" class="tool-mini" title="Export to system file">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 3v10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M8 9l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M5 21h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                  <span id="lbl_sim_export">Export</span>
+                </button>
+              </div>
+              <div class="style-control-group">
+                <span class="style-group-title" id="lbl_sim_components">Map components</span>
+                <div class="vis-list">
+                  <label class="vis-item"><input type="checkbox" id="visRangeAzimuth"> <span id="lbl_vis_range_azimuth">Range ring azimuth</span></label>
+                  <label class="vis-item"><input type="checkbox" id="visLegend" checked> <span id="lbl_vis_legend">Legend</span></label>
+                  <label class="vis-item"><input type="checkbox" id="visHud" checked> <span id="lbl_vis_hud">HUD</span></label>
+                  <label class="vis-item"><input type="checkbox" id="visStatus" checked> <span id="lbl_vis_status">Distance strip</span></label>
+                  <label class="vis-item"><input type="checkbox" id="visTelemetry" checked> <span id="lbl_vis_telemetry">Telemetry</span></label>
+                  <label class="vis-item"><input type="checkbox" id="visMissileTitle" checked> <span id="lbl_vis_title">Missile title</span></label>
+                  <label class="vis-item"><input type="checkbox" id="visZoom" checked> <span id="lbl_vis_zoom">Zoom buttons</span></label>
+                  <label class="vis-item"><input type="checkbox" id="visHelp" checked> <span id="lbl_vis_help">Help</span></label>
+                  <label class="vis-item"><input type="checkbox" id="visAiSim"> <span id="lbl_vis_ai">AI analysis</span></label>
+                  <label class="vis-item"><input type="checkbox" id="visSwot"> <span id="lbl_vis_swot">SWOT overlay</span></label>
+                  <div class="sim-swot-panel-opacity">
+                    <span class="sim-swot-panel-opacity-title" id="lbl_sim_swot_panel_glass">SWOT · map panel backgrounds</span>
+                    <div class="style-row">
+                      <label for="simLayoutGlassOp" id="lbl_sim_layout_glass_op">Glass opacity</label>
+                      <span class="style-op-val" id="simLayoutGlassOpVal">38%</span>
+                      <input type="range" id="simLayoutGlassOp" min="8" max="55" value="38" title="Opacity of SWOT and other map overlay panels">
+                    </div>
+                  </div>
+                  <label class="vis-item"><input type="checkbox" id="visModel3d"> <span id="lbl_vis_model3d">3D model</span></label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+      <div>
+        <label for="weaponSearch" id="lbl_search">Search</label>
+        <input type="search" id="weaponSearch" placeholder="Search weapons…" autocomplete="off">
+      </div>
+      <div>
+        <label for="weaponSelect" id="lbl_weapon">Weapon system</label>
+        <select id="weaponSelect"></select>
+      </div>
+      <div class="row">
+        <button type="button" id="btnLoadAll">Load full catalog</button>
+      </div>
+      <div>
+        <label for="basemapSelect" id="lbl_basemap">Basemap</label>
+        <select id="basemapSelect">
+          <option value="dark">Dark</option>
+          <option value="osm">Street</option>
+          <option value="sat">Satellite</option>
+        </select>
+      </div>
+      <div>
+        <label for="flightProfile" id="lbl_flight">Flight profile</label>
+        <select id="flightProfile">
+          <option value="low">Low (faster TOF)</option>
+          <option value="high">High (slower)</option>
+        </select>
+      </div>
+      <div>
+        <label for="arcStyle" id="lbl_arc">Arc style</label>
+        <select id="arcStyle">
+          <option value="ballistic">Ballistic</option>
+          <option value="cruise">Cruise</option>
+          <option value="direct">Direct</option>
+        </select>
+      </div>
+      <div>
+        <label for="playSpeed" id="lbl_play_speed">Play speed</label>
+        <select id="playSpeed" title="Animation speed for countdown and flight path">
+          <option value="0.25">0.25×</option>
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+          <option value="4">4×</option>
+        </select>
+      </div>
+      <div class="row">
+        <button type="button" id="btnLabels">Labels</button>
+        <button type="button" id="btnPlay" class="primary btn-play-army" title="Run trajectory">
+          <span class="btn-play-army-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+              <path d="M16 2 L27 9 V23 L16 30 L5 23 V9 Z" stroke="#39ff9c" stroke-width="1.6" fill="rgba(0,35,28,0.75)"/>
+              <path d="M13 10 L22 16 L13 22 V10 Z" fill="#39ff9c"/>
+            </svg>
+          </span>
+          <span id="btnPlayLabel">Play</span>
+        </button>
+      </div>
+      <div class="row">
+        <button type="button" id="btnZoomIn">+</button>
+        <button type="button" id="btnZoomOut">−</button>
+      </div>
+      <div>
+        <label id="lbl_quickzoom">Quick zoom</label>
+        <div class="row">
+          <button type="button" data-zoom="2">Global</button>
+          <button type="button" data-zoom="5">Region</button>
+        </div>
+        <div class="row" style="margin-top:4px;">
+          <button type="button" data-zoom="8">Country</button>
+          <button type="button" data-zoom="11">City</button>
+        </div>
+      </div>
+      <div class="row">
+        <button type="button" id="btnMeasure">Measure</button>
+        <button type="button" id="btnUndoLaunch">Undo launch</button>
+      </div>
+      <div class="row">
+        <button type="button" id="btnResetTarget">Reset target</button>
+        <button type="button" id="btnExport">Export image</button>
+      </div>
+      <div class="row">
+        <button type="button" id="btnOpenMap">Open on main map</button>
+      </div>
+      <div class="row">
+        <button type="button" id="btnFullscreen" title="Toggle fullscreen map mode">
+          <span class="sim-fs-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+              <path d="M9 4H5a1 1 0 00-1 1v4M15 20h4a1 1 0 001-1v-4M4 15v4a1 1 0 001 1h4M20 9V5a1 1 0 00-1-1h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span id="btnFullscreenLabel">Fullscreen</span>
+        </button>
+      </div>
+      <div class="chk-row">
+        <input type="checkbox" id="chkDefense">
+        <label for="chkDefense" id="lbl_defense" style="margin:0;">Notional defense ring</label>
+      </div>
+      <div class="chk-row">
+        <input type="checkbox" id="chkHC">
+        <label for="chkHC" id="lbl_hc" style="margin:0;">High contrast</label>
+      </div>
+      <p class="stat" id="simStats">Simulations: 0 · Zoom: —</p>
+      <p class="stat" id="i18n_map_hint" style="margin-top:auto;">Map: click = target · drag = pan · drag markers.</p>
+    </aside>
+    </div>
+      <button type="button" id="btnSimMenuToggle" class="sim-sidebar-toggle" aria-expanded="true" aria-controls="sidebar" title="Hide simulator menu">
+        <span class="sim-sidebar-toggle-icon" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+      </button>
+      <div id="map"></div>
+      <button type="button" id="btnTransferMainMap" class="sim-map-transfer-fab layout-box layout-outline sim-panel-float" data-box-id="btnTransferMainMap" title="Send scene to main map">
+        <span class="btn-transfer-main-icon" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+            <path d="M12 3v6m0 0l-3-3m3 3l3-3M5 12H3v7a2 2 0 002 2h14a2 2 0 002-2v-7h-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M8 14h8v5H8v-5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+      </button>
+      <div class="zoom-bar layout-box layout-outline" id="zoomBar" data-box-id="zoomBar">
+        <button type="button" id="btnZoomIn2" title="Zoom in">+</button>
+        <button type="button" id="btnZoomOut2" title="Zoom out">−</button>
+      </div>
+      <button type="button" id="btnFsDefault" class="hidden" title="Exit fullscreen">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+          <path d="M9 10H5V5M15 10h4V5M9 14H5v5M15 14h4v5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <div id="neonMissileTitle" class="neon-missile-title hidden layout-box layout-outline sim-panel-float" data-box-id="neonMissileTitle">
+        <span class="neon-missile-title-body" id="neonMissileTitleBody">—</span>
+      </div>
+      <div id="neonTelemetry" class="neon-telemetry hidden layout-box layout-outline" aria-hidden="true" data-box-id="neonTelemetry">
+        <div class="neon-row"><span class="neon-label" id="neonLblReadiness">Readiness</span><br><span class="neon-val" id="neonReadiness">—</span></div>
+        <div class="neon-row"><span class="neon-label" id="neonLblTime">Time</span><br><span class="neon-val" id="neonTime">—</span></div>
+        <div class="neon-row"><span class="neon-label" id="neonLblSpeed">Speed</span><br><span class="neon-val" id="neonSpeed">—</span></div>
+        <div class="neon-row"><span class="neon-label" id="neonLblDist">Distance</span><br><span class="neon-val" id="neonDist">—</span></div>
+        <div class="neon-row"><span class="neon-label" id="neonLblCoord">Position</span><br><span class="neon-val" id="neonCoord">—</span></div>
+      </div>
+      <div id="swotOverlay" class="swot-overlay map-neon-glass hidden layout-box layout-outline" aria-hidden="true" data-box-id="swotOverlay">
+        <div class="swot-overlay-header">
+          <h4 id="swotTitle">SWOT</h4>
+          <button type="button" id="btnTransferFromSwot" class="sim-swot-transfer-icon" title="Send scene to main map">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+              <path d="M12 3v6m0 0l-3-3m3 3l3-3M5 12H3v7a2 2 0 002 2h14a2 2 0 002-2v-7h-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M8 14h8v5H8v-5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="swot-kv" style="margin-bottom:10px;">
+          <div class="k" id="swotKNet">Net</div><div class="v" id="swotNet">—</div>
+          <div class="k" id="swotKWeighted">Weighted</div><div class="v" id="swotWeighted">—</div>
+          <div class="k" id="swotKUpdated">Updated</div><div class="v" id="swotUpdated">—</div>
+        </div>
+        <div id="swotTextBoxes" style="display:flex;flex-direction:column;gap:8px;">
+          <div class="map-neon-glass" style="padding:8px 10px;">
+            <div class="k" id="swotKStrengths">Strengths</div>
+            <div class="v" id="swotStrengths" style="white-space:pre-wrap;line-height:1.45;">—</div>
+          </div>
+          <div class="map-neon-glass" style="padding:8px 10px;">
+            <div class="k" id="swotKWeaknesses">Weaknesses</div>
+            <div class="v" id="swotWeaknesses" style="white-space:pre-wrap;line-height:1.45;">—</div>
+          </div>
+          <div class="map-neon-glass" style="padding:8px 10px;">
+            <div class="k" id="swotKOpportunities">Opportunities</div>
+            <div class="v" id="swotOpportunities" style="white-space:pre-wrap;line-height:1.45;">—</div>
+          </div>
+          <div class="map-neon-glass" style="padding:8px 10px;">
+            <div class="k" id="swotKThreats">Threats</div>
+            <div class="v" id="swotThreats" style="white-space:pre-wrap;line-height:1.45;">—</div>
+          </div>
+          <div class="map-neon-glass" style="padding:8px 10px;">
+            <div class="k" id="swotKRecs">Recommendations</div>
+            <div class="v" id="swotRecs" style="white-space:pre-wrap;line-height:1.45;">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="legend map-neon-glass layout-box layout-outline" id="legendBox" data-box-id="legendBox">
+        <h3 id="i18n_legend_title">Legend</h3>
+        <ul style="margin:0;padding-left:16px;">
+          <li id="leg_launch"><span style="color:var(--danger)">●</span> Launch / range</li>
+          <li id="leg_target"><span style="color:var(--warn)">●</span> Target</li>
+          <li id="leg_path"><span style="color:var(--accent)">—</span> Path</li>
+        </ul>
+      </div>
+      <div class="status-strip map-neon-glass layout-box layout-outline sim-panel-float" id="statusStrip" data-box-id="statusStrip">
+        <div class="status-strip-body" id="statusStripBody">—</div>
+      </div>
+      <div class="hud map-neon-glass layout-box layout-outline sim-panel-float" id="hud" data-box-id="hud">
+        <div class="hud-body" id="hudBody">No weapon loaded</div>
+      </div>
+      <div class="hud map-neon-glass hidden layout-box layout-outline sim-panel-float" id="aiSimBox" data-box-id="aiSimBox">
+        <div class="ai-sim-head" style="font-weight:800;letter-spacing:.6px;color:#aef;">
+          AI Simulator Analysis
+        </div>
+        <div id="aiSimText">—</div>
+      </div>
+      <div class="hud map-neon-glass hidden layout-box layout-outline sim-panel-float" id="simModelBox" data-box-id="simModelBox">
+        <div id="simModelHead">3D Model</div>
+        <div id="simModelStage">
+          <div id="simModelEmpty">No 3D model available for selected weapon.</div>
+        </div>
+      </div>
+      <button type="button" id="btnPlayMap" class="sim-map-play-fab layout-box layout-outline sim-panel-float" data-box-id="btnPlayMap" title="Run trajectory">
+        <span class="btn-play-army-icon" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+            <path d="M16 2 L27 9 V23 L16 30 L5 23 V9 Z" stroke="#39ff9c" stroke-width="1.6" fill="rgba(0,35,28,0.75)"/>
+            <path d="M13 10 L22 16 L13 22 V10 Z" fill="#39ff9c"/>
+          </svg>
+        </span>
+        <span id="btnPlayMapLabel">Play</span>
+      </button>
+      <button type="button" class="help-fab layout-box layout-outline" id="btnHelp" data-box-id="btnHelp" title="Shortcuts">?</button>
+    </div>
+  </div>
+  <div id="tutorial" class="modal-overlay hidden">
+    <div class="modal">
+      <h2 id="tut_title">Welcome</h2>
+      <p id="tut_body">First time? Quick tour.</p>
+      <p id="tut_step" style="font-size:12px;color:var(--accent);"></p>
+      <div class="modal-actions">
+        <button type="button" id="btnTutorialSkip">Skip</button>
+        <button type="button" id="btnTutorialNext" class="primary">Next</button>
+      </div>
+    </div>
+  </div>
+  <div id="helpModal" class="modal-overlay hidden">
+    <div class="modal">
+      <h2 id="help_title">Shortcuts</h2>
+      <p id="help_body" style="white-space:pre-wrap;"></p>
+      <div class="modal-actions">
+        <button type="button" id="btnHelpClose" class="primary">OK</button>
+      </div>
+    </div>
+  </div>
+  <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+  <script src="vendor/leaflet.js"></script>
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <script src="simulator.js"></script>
+</body>
+</html>
