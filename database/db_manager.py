@@ -898,18 +898,23 @@ class DatabaseManager:
         """Add new weapon to database"""
         try:
             with self.get_session() as session:
-                # Handle category/country by name lookup or create
-                if 'category' in weapon_data and weapon_data['category']:
-                    cat = session.query(Category).filter(Category.name == weapon_data['category']).first()
-                    if cat:
-                        weapon_data['category_id'] = cat.id
-                        del weapon_data['category']
-                
-                if 'country' in weapon_data and weapon_data['country']:
-                    country = session.query(Country).filter(Country.name == weapon_data['country']).first()
-                    if country:
-                        weapon_data['country_id'] = country.id
-                        del weapon_data['country']
+                # Resolve lookup relationships by name (get-or-create) and always drop
+                # the name keys: assigning a raw string to a relationship attribute
+                # raises inside SQLAlchemy instead of being ignored.
+                for field, model in (('category', Category), ('country', Country),
+                                     ('guidance', GuidanceType), ('propulsion', PropulsionType)):
+                    if field not in weapon_data:
+                        continue
+                    value = weapon_data.pop(field)
+                    text = str(value).strip() if value is not None else ''
+                    if not text:
+                        continue
+                    row = session.query(model).filter(model.name == text).first()
+                    if row is None:
+                        row = model(name=text)
+                        session.add(row)
+                        session.flush()
+                    weapon_data[f'{field}_id'] = row.id
                 
                 weapon = Weapon(**{k: v for k, v in weapon_data.items() if hasattr(Weapon, k)})
                 session.add(weapon)
@@ -1154,12 +1159,12 @@ class DatabaseManager:
                 pass
             return False
         except Exception as e:
-            logger.error(f"Unexpected error in add_weapon_images_batch: {e}", exc_info=True)
+            logger.error(f"Unexpected error in add_weapon_model: {e}", exc_info=True)
             try:
                 session.rollback()
             except Exception:
                 pass
-            return (added, skipped)
+            return False
 
     def save_weapon_swot_report(
         self,
