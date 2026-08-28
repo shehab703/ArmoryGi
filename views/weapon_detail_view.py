@@ -184,6 +184,17 @@ class WeaponDetailView(QWidget):
         self.retranslate_ui()
         self._refresh_notes_buttons()
 
+    def show_smart_recommendation(self, weapon: dict):
+        try:
+            from utils.intelligence_engine import SmartWeaponAnalyzer
+            profile = SmartWeaponAnalyzer.recommend_profile(weapon)
+            recommendations = SmartWeaponAnalyzer.get_recommendations(weapon)
+            msg = f"{self._tr('Profile')}: {profile.title()}\n\n"
+            msg += "\n".join(f"• {r}" for r in recommendations)
+            QMessageBox.information(self, "ذكاء تنافسي — Smart Intelligence", msg)
+        except Exception:
+            pass
+
     def retranslate_ui(self):
         if not self._current_weapon:
             self.title_lbl.setText(self._tr("Select a weapon to view details"))

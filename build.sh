@@ -7,7 +7,8 @@ echo "==============================="
 
 # Configuration
 APP_NAME="ArmoryGIS Pro"
-VERSION="1.0.0"
+VERSION="2.0.0"
+EDITION="Professional Military Edition"
 OUTPUT_DIR="dist"
 SPEC_FILE="packaging/pyinstaller.spec"
 
