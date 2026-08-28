@@ -934,7 +934,10 @@ class DatabaseManager:
                 
         except SQLAlchemyError as e:
             logger.error(f"Failed to add weapon: {e}")
-            session.rollback()
+            try:
+                session.rollback()
+            except Exception:
+                pass
             return None
     
     def update_weapon(self, weapon_id: int, updates: Dict[str, Any]) -> Optional[Weapon]:
@@ -967,7 +970,10 @@ class DatabaseManager:
                 
         except SQLAlchemyError as e:
             logger.error(f"Failed to update weapon: {e}")
-            session.rollback()
+            try:
+                session.rollback()
+            except Exception:
+                pass
             return None
     
     def delete_weapon(self, weapon_id: int) -> bool:
@@ -985,7 +991,10 @@ class DatabaseManager:
                 
         except SQLAlchemyError as e:
             logger.error(f"Failed to delete weapon: {e}")
-            session.rollback()
+            try:
+                session.rollback()
+            except Exception:
+                pass
             return False
 
     def add_weapon_image(self, weapon_id: int, image_path: str, is_primary: bool = False, caption: Optional[str] = None) -> bool:

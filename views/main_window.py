@@ -25,6 +25,7 @@ from views.single_weapon_view import SingleWeaponView
 from views.report_workspace_view import ReportWorkspaceView
 from views.swot_analysis_view import SWOTAnalysisView
 from views.simulator_view import SimulatorView
+from views.weapon_3d_view import Weapon3DView
 from dialogs.export_dialog import ExportDialog
 from dialogs.settings_dialog import SettingsDialog
 from dialogs.add_weapon_dialog import AddWeaponDialog
@@ -90,6 +91,7 @@ class MainWindow(QMainWindow):
         self._map_tab_index = 1
         self._single_weapon_tab_index = 2
         self._simulator_tab_index = 6
+        self._weapon_3d_tab_index = 7
         
         # Initialize UI
         if embedded:
@@ -334,7 +336,21 @@ class MainWindow(QMainWindow):
         self._simulator_placeholder = QWidget()
         self.main_tabs.addTab(self._simulator_placeholder, self._safe_tab_icon("map.svg"), "Simulator")
 
-        # 5) Reports workspace (preview + edit + export) - lazy loaded
+        # 6) 3D Weapon Viewer — dedicated immersive 3D presentation tab
+        self._weapon_3d_view = Weapon3DView(
+            self.db,
+            tile_cache=self.tile_cache,
+            lang_manager=self.lang_manager,
+            settings=self.settings,
+        )
+        self.main_tabs.addTab(
+            self._weapon_3d_view,
+            self._safe_tab_icon("map.svg"),
+            "3D Viewer"
+        )
+        self._weapon_3d_tab_index = 7
+
+        # 7) Reports workspace (preview + edit + export) - lazy loaded
         self._reports_placeholder = QWidget()
         self._reports_tab_index = self.main_tabs.addTab(
             self._reports_placeholder, self._safe_tab_icon("detail.svg"), "Reports"
@@ -359,6 +375,11 @@ class MainWindow(QMainWindow):
             self._ensure_range_compare_tab()
         elif index == self._single_weapon_tab_index:
             self._ensure_single_weapon_view()
+        elif index == self._weapon_3d_tab_index:
+            # Refresh 3D viewer with current selection
+            weapon = self._get_active_weapon_for_map_tools()
+            if weapon:
+                self._weapon_3d_view.load_weapon(weapon)
         elif index == self._simulator_tab_index:
             self._ensure_simulator_view()
         elif index == self._reports_tab_index:
@@ -573,6 +594,12 @@ class MainWindow(QMainWindow):
         self.dashboard.weapon_selected.connect(self.swot_analysis.load_weapon)
         self.favorites_dashboard.weapon_selected.connect(self.swot_analysis.load_weapon)
         self.swot_analysis.weapon_selected.connect(self.detail_view.load_weapon)
+
+        # 3D Viewer — load weapon when selected
+        self.data_grid.weapon_selected.connect(self._weapon_3d_view.load_weapon)
+        self.dashboard.weapon_selected.connect(self._weapon_3d_view.load_weapon)
+        self.favorites_dashboard.weapon_selected.connect(self._weapon_3d_view.load_weapon)
+        self.swot_analysis.weapon_selected.connect(self._weapon_3d_view.load_weapon)
 
         # Detail View → Map (lazy)
         self.detail_view.show_on_map_requested.connect(self._show_weapon_on_main_map)
@@ -1393,8 +1420,9 @@ Basemaps:
         self.main_tabs.setTabText(4, self.lang_manager.tr("Favorites"))
         self.main_tabs.setTabText(5, self.lang_manager.tr("SWOT Analysis"))
         self.main_tabs.setTabText(6, self.lang_manager.tr("Simulator"))
-        self.main_tabs.setTabText(7, self.lang_manager.tr("Reports"))
-        self.main_tabs.setTabText(8, self.lang_manager.tr("Settings"))
+        self.main_tabs.setTabText(7, self.lang_manager.tr("3D Viewer"))
+        self.main_tabs.setTabText(8, self.lang_manager.tr("Reports"))
+        self.main_tabs.setTabText(9, self.lang_manager.tr("Settings"))
         self._zoom_in_action.setText(self.lang_manager.tr("Zoom +"))
         self._zoom_out_action.setText(self.lang_manager.tr("Zoom -"))
         self._add_action.setText(self.lang_manager.tr("Add"))
