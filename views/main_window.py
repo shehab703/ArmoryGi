@@ -601,6 +601,9 @@ class MainWindow(QMainWindow):
         self.favorites_dashboard.weapon_selected.connect(self._weapon_3d_view.load_weapon)
         self.swot_analysis.weapon_selected.connect(self._weapon_3d_view.load_weapon)
 
+        # 3D Viewer / 2D gallery — a primary image chosen there must reach cards & previews
+        self._weapon_3d_view.primary_image_changed.connect(self._on_gallery_primary_changed)
+
         # Detail View → Map (lazy)
         self.detail_view.show_on_map_requested.connect(self._show_weapon_on_main_map)
 
@@ -641,6 +644,16 @@ class MainWindow(QMainWindow):
                 self._refresh_reports_if_ready()
 
         QTimer.singleShot(0, _run)
+
+    def _on_gallery_primary_changed(self, weapon_id: int):
+        """Debounced refresh after the 2D gallery changes a weapon's primary image."""
+        self._schedule_main_refresh()
+        weapon = self._weapon_3d_view.weapon
+        if not weapon:
+            return
+        if self.single_weapon_view is not None:
+            self.single_weapon_view.load_weapon(weapon)
+        self.detail_view.load_weapon(weapon)
 
     def _schedule_status_counts_refresh(self):
         if self._status_refresh_pending:

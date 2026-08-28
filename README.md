@@ -24,6 +24,13 @@
 - **Brand customization** — Company name and logo support in settings
 - **Modern iconography** — Professional SVG icons for all interface elements
 
+### Media Presentation (3D Viewer tab)
+- **Full-width 2D gallery** in the same tab as the 3D model — swipe with mouse/touch/trackpad, filmstrip thumbnails, zoom & pan, slideshow, fullscreen lightbox
+- **RTL-aware navigation** — key mapping, swipe direction and button glyphs follow Arabic reading order
+- **Import by drag & drop** into the weapon media folder, plus "set as primary image" persisted through the database
+- **Offline-first 3D** — the vendored `resources/html/Js/model-viewer.min.js` is preferred, CDN only as fallback
+- Shortcuts: `←/→` · `Home/End` · `+ / - / 0` (zoom/fit) · `Space` (slideshow) · `F` (fullscreen) · `P` (primary) · `Esc`
+
 ### Data & Map Intelligence
 - **Offline map tile caching** with automatic cleanup and statistics
 - **Geospatial weapon tracking** — Range rings, trajectory simulation, defense layers
@@ -59,6 +66,17 @@ python main.py
 
 ---
 
+## Development & Quality
+
+```bash
+python -m pytest tests/ -q          # headless-safe; export QT_QPA_PLATFORM=offscreen in CI
+```
+
+- The 2D gallery ships with unit + gesture tests (`tests/test_weapon_3d_gallery.py`)
+- Prioritized roadmap, verified findings and copy-paste CI config: [DEVELOPMENT_SUGGESTIONS.md](DEVELOPMENT_SUGGESTIONS.md)
+
+---
+
 ## Professional Development Status
 
 - [x] Professional dark military theme implemented
@@ -69,6 +87,8 @@ python main.py
 - [x] Organized code structure and documentation
 - [x] AI integration layer (Ollama) with safe JSON parsing
 - [x] Offline map support with tile caching
+- [x] Full-width 2D media gallery with swipe/RTL navigation in the 3D tab
+- [x] Headless PyQt6 tests for the gallery; database lookup-relation fix with regression test
 
 ---
 

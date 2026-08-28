@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "armorygis-pro"
-version = "1.0.0"
+version = "2.0.0"
 description = "Weapons Database Management Desktop Application with Geospatial Intelligence and Offline Map Support"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "Proprietary - Defense Use Only"}
 authors = [
     {name = "Defense Systems Architecture Team", email = "dev@defensesystems.local"}
@@ -17,9 +17,9 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Defense Contractors",
     "License :: Other/Proprietary License",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: GIS",
     "Topic :: Security",
 ]
@@ -44,6 +44,7 @@ dependencies = [
 dev = [
     "pytest>=7.4.0",
     "pytest-qt>=4.2.0",
+    "pytest-cov>=4.1.0",
     "black>=23.0.0",
     "mypy>=1.5.0",
     "pylint>=3.0.0",
@@ -67,14 +68,25 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
-addopts = "-v --tb=short --cov=armorygis --cov-report=term-missing"
+# The project is a flat layout (views/, utils/, database/ at the repo root), so the
+# root has to be importable for `from config import ...` to work under pytest.
+pythonpath = ["."]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+# opt-in: python -m pytest --cov  (needs pytest-cov, listed in [project.optional-dependencies].dev)
+source = ["views", "utils", "database", "models", "controllers", "dialogs"]
+omit = ["tests/*", "packaging/*", "scripts/*"]
+
+[tool.coverage.report]
+show_missing = true
 filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
 ]
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -95,3 +107,22 @@ exclude = '''
   | migrations
 )/
 '''
+
+[[tool.mypy.overrides]]
+# Legacy, untyped application layers: checked leniently until they are annotated.
+module = [
+    "views.*",
+    "controllers.*",
+    "dialogs.*",
+    "database.*",
+    "models.*",
+    "utils.*",
+    "scripts.*",
+    "tests.*",
+    "packaging.*",
+]
+ignore_missing_imports = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+warn_return_any = false

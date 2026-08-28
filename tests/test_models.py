@@ -1,3 +1,4 @@
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication
 from models.weapon_model import WeaponTableModel
 
@@ -9,5 +10,6 @@ def test_model_loads_data():
 
 def test_model_header():
     model = WeaponTableModel([])
-    assert model.headerData(0, 0) == "ID"
-    assert model.headerData(2, 0) == "Name"
+    horizontal = Qt.Orientation.Horizontal
+    assert model.headerData(0, horizontal) == "ID"
+    assert model.headerData(2, horizontal) == "Name"

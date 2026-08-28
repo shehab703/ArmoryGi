@@ -14,7 +14,7 @@ APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
 # Application Metadata
 APP_CONFIG: Dict[str, Any] = {
     'app_name': 'ArmoryGIS Pro',
-    'version': '1.0.0',
+    'version': '2.0.0',  # keep in sync with pyproject.toml and build.sh
     'organization': 'Defense Systems Architecture',
     'copyright': '© 2026 Defense Systems Architecture Team',
     
